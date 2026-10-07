@@ -617,7 +617,7 @@
       setTimeout(() => speak(q.speak, b), 350);
       b.addEventListener("click", () => speak(q.speak, b));
     }
-    if (q.kind === "mcq") {
+    if (q.kind === "mcq" || q.kind === "listen") {
       $$(".opt").forEach((btn) => btn.addEventListener("click", () => answer(parseInt(btn.dataset.i, 10))));
       const onKey = (e) => {
         const k = e.key.toUpperCase();
