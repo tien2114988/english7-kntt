@@ -6,6 +6,7 @@
 <title>English Quest 7 — Phiêu lưu Tiếng Anh 7 Kết nối tri thức</title>
 <meta name="description" content="Game bản đồ phiêu lưu giúp học sinh lớp 7 ôn luyện từ vựng, nghe, ngữ pháp theo SGK Tiếng Anh 7 Kết nối tri thức với cuộc sống." />
 <meta name="theme-color" content="#6C4CF1" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦜</text></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
@@ -106,8 +107,9 @@
         <div class="stat"><b id="resCombo">0</b><span>combo dài nhất</span></div>
       </div>
       <div class="result-actions">
+        <button class="btn btn--primary" id="btnNext" hidden>▶ Tiếp theo</button>
         <button class="btn btn--ghost" id="btnRetry">🔁 Chơi lại</button>
-        <button class="btn btn--primary" id="btnToMap">🗺️ Về bản đồ</button>
+        <button class="btn btn--ghost" id="btnToMap">🗺️ Về bản đồ</button>
       </div>
     </div>
   </section>
@@ -120,11 +122,14 @@
     <button class="modal__close" data-close aria-label="Đóng">✕</button>
     <h3 id="helpTitle">❓ Cách chơi</h3>
     <ul class="help-list">
-      <li>🗺️ <b>Bản đồ:</b> mỗi Unit và mỗi lần Ôn tập (Review) là một chặng. Chặng kế tiếp chỉ mở khi bạn hoàn thành chặng trước — đi đúng lộ trình của SGK.</li>
-      <li>📚 <b>Màn 1 – Từ vựng:</b> lật thẻ học từ, nghe phát âm, rồi làm bài kiểm tra nhanh.</li>
-      <li>🎧 <b>Màn 2 – Nghe:</b> bấm 🔊 nghe câu/từ, chọn nghĩa đúng.</li>
-      <li>📝 <b>Màn 3 – Ngữ pháp:</b> điền chỗ trống, chọn đáp án, sắp xếp câu.</li>
-      <li>👑 <b>Màn 4 – Boss:</b> thử thách tổng hợp cả chặng. Có 3–5 <b>tim</b>: trả lời sai sẽ mất 1 tim.</li>
+      <li>🧱 <b>Lớp mất gốc:</b> chặng đầu tiên, dạy từ con số 0 — từ loại, cấu trúc <b>SVO</b>, mạo từ, thì… 7 bài, mỗi bài có giảng slide + bài tập ngắn.</li>
+      <li>🗺️ <b>Bản đồ:</b> 12 Unit + 4 lần Ôn tập (Review) xen kẽ. Chặng kế tiếp chỉ mở khi bạn hoàn thành chặng trước — đi đúng lộ trình của SGK.</li>
+      <li>📖 <b>Màn 1 – Học:</b> bài giảng từng bước: mục tiêu → công thức → giải thích → ví dụ 🔊 → lỗi hay mắc → 4 câu bài tập.</li>
+      <li>📚 <b>Màn 2 – Từ vựng:</b> lật thẻ học từ, nghe phát âm, dịch câu và dựng câu bằng từ đã học.</li>
+      <li>🎧 <b>Màn 3 – Nghe:</b> bấm 🔊 nghe câu/từ, chọn nghĩa đúng.</li>
+      <li>📝 <b>Màn 4 – Ngữ pháp:</b> điền chỗ trống, chọn đáp án, sắp xếp câu, dịch câu.</li>
+      <li>👑 <b>Màn 5 – Boss:</b> thử thách tổng hợp cả chặng. Có 3–5 <b>tim</b>: trả lời sai sẽ mất 1 tim.</li>
+      <li>💡 <b>Mỗi câu trả lời</b> (đúng hay sai) đều hiện giải thích: vì sao, câu dịch Anh–Việt, ngữ pháp vừa dùng, từ vựng trong câu và nút <b>📖 Ôn lại phần học này</b>.</li>
       <li>⭐ <b>Sao:</b> ≥90% đúng = 3 sao, ≥75% = 2 sao, ≥60% = 1 sao.</li>
       <li>⚡ <b>XP</b> giúp bạn lên cấp; 🔥 streak tăng khi học mỗi ngày.</li>
     </ul>
@@ -160,6 +165,9 @@
 </div>
 
 <script src="data.js"></script>
+<script src="lessons-foundation.js"></script>
+<script src="lessons-units1.js"></script>
+<script src="lessons-units2.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

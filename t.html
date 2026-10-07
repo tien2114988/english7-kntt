@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><title>SELFTEST RUNNING</title>
+<style>
+  body{font-family:ui-monospace,Menlo,monospace;background:#0d0d12;color:#c9f7c9;padding:14px}
+  h1{font-size:20px} pre{white-space:pre-wrap;line-height:1.6;font-size:13px}
+  .ok{color:#5cff9d} .bad{color:#ff6b6b}
+  iframe{width:100%;height:220px;border:2px solid #333;margin-top:12px;background:#fff}
+</style>
+</head>
+<body>
+<h1 id="status">RUNNING…</h1>
+<pre id="log"></pre>
+<iframe id="f" title="game"></iframe>
+<script>
+const logs = []; let fails = 0;
+const t = (name, cond, extra) => {
+  logs.push((cond ? "PASS" : "FAIL") + " — " + name + (extra != null ? " :: " + extra : ""));
+  if (!cond) fails++;
+};
+window.addEventListener("error", (e) => { logs.push("JSERROR: " + e.message); fails++; render(); });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function until(fn, ms) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < (ms || 9000)) { if (fn()) return true; await wait(70); }
+  return false;
+}
+function render() {
+  document.getElementById("log").innerHTML = logs.map((l) =>
+    '<span class="' + (l.startsWith("PASS") ? "ok" : "bad") + '">' + l.replace(/</g, "&lt;") + "</span>").join("\n");
+}
+async function run() {
+  try {
+    const f = document.getElementById("f");
+    localStorage.clear();
+    f.src = "index.html?debug=1";
+    await until(() => f.contentWindow && f.contentWindow.EQ7, 8000);
+    const w = f.contentWindow, d = f.contentDocument;
+    d.defaultView.addEventListener("error", (e) => { logs.push("IFRAME JSERROR: " + e.message); fails++; render(); });
+    t("trang game load + EQ7 hook", !!w.EQ7);
+    t("không hiện màn lỗi fatal", d.getElementById("fatal").hidden);
+
+    /* mở bản đồ */
+    d.getElementById("btnPlay").click();
+    const hasNodes = await until(() => d.querySelectorAll(".node-btn").length > 0, 5000);
+    t("mở được bản đồ", hasNodes);
+
+    /* ---- 1. học liệu ---- */
+    t("nạp LESSONS_F/U1/U2", !!(w.LESSONS_F && w.LESSONS_U1 && w.LESSONS_U2));
+    const L = w.EQ7._LESSONS;
+    t("7 bài Lớp mất gốc", L.foundation && L.foundation.lessons.length === 7, L.foundation && L.foundation.lessons.length);
+    t("16 chặng có bài học", Object.keys(L.units).length === 16, Object.keys(L.units).length);
+    t("91 câu dịch nghĩa", Object.keys(L.quizVi).length === 91, Object.keys(L.quizVi).length);
+
+    /* ---- 2. bản đồ ---- */
+    const nodes = Array.from(d.querySelectorAll(".node-btn"));
+    t("17 chặng trên bản đồ", nodes.length === 17, nodes.length);
+    t("node đầu là Lớp mất gốc (ABC)", d.querySelector(".node-num").textContent === "ABC",
+      d.querySelector(".node-num").textContent);
+    t("chặng Nền + Unit 1 mở sẵn", !nodes[0].disabled && !nodes[1].disabled);
+    t("Unit 2 khoá cho tới khi xong Unit 1", nodes[2].disabled);
+    t("tab màn là <button> bấm được",
+      d.querySelectorAll("#stageTabs button.tab").length >= 0);
+
+    /* ---- 3. dạng bài mới trong bộ câu hỏi ---- */
+    const UNITS = w.EQ7._UNITS;
+    let hasT = false, hasB = false, total = 0;
+    UNITS.forEach((u) => {
+      ["vocab", "grammar", "listen", "boss"].forEach((k) => {
+        const qs = w.EQ7._q[k](u);
+        total += qs.length;
+        if (qs.some((q) => q.tag && q.tag.ico === "🌐")) hasT = true;
+        if (qs.some((q) => q.kind === "build")) hasB = true;
+      });
+    });
+    t("có dạng 🌐 Dịch câu", hasT);
+    t("có dạng 🧩 Dựng câu (S-V-O)", hasB);
+    t("bộ câu hỏi sinh ổn định", total > 450, total + " câu");
+
+    /* ---- 4. bài giảng Lớp mất gốc ---- */
+    w.EQ7.startStage(0, "learn");
+    await wait(150);
+    const dc = () => f.contentDocument;
+    t("vào màn 📖 Học Lớp mất gốc", dc().querySelector("#quizArea .sl-goal") != null,
+      dc().querySelector(".qkind") && dc().querySelector(".qkind").textContent);
+    const slideSeq = [];
+    for (let i = 0; i < 4; i++) {
+      const k = dc().querySelector(".qkind");
+      slideSeq.push(k ? k.textContent.replace(/[^\p{L}]/gu, "").slice(0, 6) : "?");
+      const b = dc().querySelector("#slNext"); if (b) b.click();
+      await wait(90);
+    }
+    t("slide bài giảng có mục tiêu + công thức + giải thích",
+      /Mục/.test(slideSeq[0]) && /Công/.test(slideSeq[1]) && /Hiểu/.test(slideSeq[2]),
+      JSON.stringify(slideSeq));
+
+    /* ---- 5. chạy hết 1 bài học nền tảng ---- */
+    w.EQ7.runStage(0, "learn");
+    let done = await until(() => dc().getElementById("screen-result").classList.contains("is-active"));
+    t("xong bài 1 Lớp mất gốc → màn kết quả", done);
+    t("sao lưu cho bài f1", (w.EQ7._S().less || {}).f1 >= 1, JSON.stringify(w.EQ7._S().less));
+
+    /* ---- 6. Unit 1: học → từ vựng → nghe → ngữ pháp → boss ---- */
+    for (const k of ["learn", "vocab", "listen", "grammar", "boss"]) {
+      w.EQ7.runStage(1, k);
+      done = await until(() => dc().getElementById("screen-result").classList.contains("is-active"));
+      t("Unit 1 màn " + k + " chạy hết", done);
+      await wait(80);
+      const again = dc().getElementById("btnRetry");
+      if (again && k !== "boss") {
+        const nx = dc().getElementById("btnNext");
+        t("nút 'Tiếp theo' sáng ở màn " + k, nx && !nx.hidden, nx && nx.textContent);
+      }
+    }
+    const st1 = w.EQ7._S().stars[1] || {};
+    t("Unit 1 đủ 5 màn có sao", ["learn", "vocab", "listen", "grammar", "boss"].every((k) => (st1[k] || 0) >= 1),
+      JSON.stringify(st1));
+
+    /* ---- 7. panel giải thích chi tiết ---- */
+    w.EQ7.startStage(1, "vocab");
+    await wait(220);
+    let qs = w.EQ7.run.qs;
+    const ti = qs.findIndex((q) => q.tag && q.tag.ico === "🌐");
+    if (ti >= 0) {
+      w.EQ7.run.qi = ti; w.EQ7.render(); await wait(80);
+      w.EQ7.answerCurrent(); await wait(140);
+    }
+    const fb = dc().getElementById("feedback");
+    t("câu 🌐 Dịch có panel dịch nghĩa", ti >= 0 && fb.innerHTML.indexOf("🌐 Dịch") >= 0, "idx=" + ti);
+    t("panel hiện 📖 Ngữ pháp", fb.innerHTML.indexOf("📖 Ngữ pháp") >= 0);
+    t("panel hiện 💡 giải thích", fb.innerHTML.indexOf("fb-explain") >= 0);
+    t("panel có nút Ôn lại phần học", !!fb.querySelector("#fbLesson"));
+
+    const wi = qs.findIndex((q) => q.kind === "mcq" && !q.tag);
+    if (wi >= 0) {
+      w.EQ7.run.qi = wi; w.EQ7.render(); await wait(80);
+      w.EQ7.answerCurrent(); await wait(140);
+    }
+    t("câu từ vựng có ✨ ví dụ Anh–Việt",
+      wi >= 0 && dc().getElementById("feedback").innerHTML.indexOf("✨ Ví dụ") >= 0, "idx=" + wi);
+
+    /* câu nghe → có dịch nghĩa */
+    w.EQ7.startStage(1, "listen");
+    await wait(200);
+    w.EQ7.answerCurrent();
+    await wait(120);
+    t("sau câu Nghe cũng hiện 🌐 Dịch", dc().getElementById("feedback").innerHTML.indexOf("🌐 Dịch") >= 0);
+
+    /* tìm câu Dựng câu → kiểm tra cấu trúc S-V-O */
+    let buildIdx = -1;
+    w.EQ7.startStage(1, "grammar");
+    await wait(200);
+    w.EQ7.run.qs.forEach((q, i) => { if (q.kind === "build" && buildIdx < 0) buildIdx = i; });
+    if (buildIdx < 0) {
+      w.EQ7.startStage(1, "vocab");
+      await wait(200);
+      w.EQ7.run.qs.forEach((q, i) => { if (q.kind === "build" && buildIdx < 0) buildIdx = i; });
+    }
+    t("có câu 🧩 Dựng câu trong màn", buildIdx >= 0, "idx=" + buildIdx);
+    if (buildIdx >= 0) {
+      w.EQ7.run.qi = buildIdx;
+      w.EQ7.render();
+      await wait(80);
+      t("giao diện Dựng câu có bank+tray", !!dc().getElementById("bank") && !!dc().getElementById("tray"));
+      w.EQ7.answerCurrent();
+      await wait(120);
+      const h = dc().getElementById("feedback");
+      t("panel hiện cấu trúc S-V-O", h.innerHTML.indexOf("fb-svo") >= 0);
+      t("panel có nhãn S và V", /<i>S<\/i>/.test(h.innerHTML) && /<i>V<\/i>/.test(h.innerHTML));
+    }
+
+    /* ---- 8. quay bản đồ → Unit 2 mở sau khi xong Unit 1 ---- */
+    d.getElementById("btnBack").click();
+    const openedMap = await until(() => d.querySelectorAll(".node-btn").length > 0, 5000);
+    t("quay về bản đồ được", openedMap);
+    const nd = Array.from(d.querySelectorAll(".node-btn"));
+    t("Unit 2 mở sau khi xong Unit 1", nd[2] && !nd[2].disabled);
+
+    /* ---- 8b. bấm tab nhảy màn ---- */
+    w.EQ7.startStage(1, "vocab");
+    await wait(220);
+    const tabG = Array.from(d.querySelectorAll("#stageTabs .tab")).find((x) => x.dataset.key === "grammar");
+    if (tabG) { tabG.click(); await wait(250); }
+    t("Unit 1 (đã xong) → bấm tab 📝 nhảy được", tabG && w.EQ7.run && w.EQ7.run.key === "grammar",
+      w.EQ7.run && w.EQ7.run.key);
+
+    /* Unit 2 chưa học → tab phía sau phải khoá */
+    w.EQ7.startStage(2, "vocab");
+    await wait(220);
+    const lockedTab = Array.from(d.querySelectorAll("#stageTabs .tab")).find((x) => x.dataset.key === "boss");
+    if (lockedTab) { lockedTab.click(); await wait(250); }
+    t("Unit 2: tab chưa học thì khoá", lockedTab && w.EQ7.run && w.EQ7.run.key === "vocab",
+      w.EQ7.run && w.EQ7.run.key);
+
+    /* ---- 8c. chặng Ôn tập (Review) cũng có màn Học ---- */
+    const ri = w.EQ7._UNITS.findIndex((u) => u.type === "review");
+    t("bản đồ có xen chặng Ôn tập", ri > 0, "idx=" + ri);
+    w.EQ7.startStage(ri, "learn");
+    await wait(250);
+    t("Ôn tập có bài giảng", !!d.querySelector("#quizArea .qkind"),
+      d.querySelector(".qkind") && d.querySelector(".qkind").textContent);
+    w.EQ7.runStage(ri, "learn");
+    done = await until(() => d.getElementById("screen-result").classList.contains("is-active"));
+    t("Ôn tập chạy hết màn Học", done);
+    const rId = w.EQ7._UNITS[ri].id;
+    t("Ôn tập được chấm sao", ((w.EQ7._S().stars[rId] || {}).learn || 0) >= 1,
+      "id=" + rId + " " + JSON.stringify(w.EQ7._S().stars[rId] || {}));
+
+    /* ---- 8d. học hết 7 bài → màn chọn bài để ôn lại ---- */
+    const Sv = w.EQ7._S();
+    ["f1", "f2", "f3", "f4", "f5", "f6", "f7"].forEach((id) => { Sv.less[id] = 3; });
+    w.EQ7.startStage(0, "learn");
+    await wait(260);
+    t("học hết 7 bài → mở danh sách chọn bài",
+      d.querySelectorAll("#quizArea .course-item").length === 7,
+      d.querySelectorAll("#quizArea .course-item").length + " bài");
+    const tabF = d.querySelector("#stageTabs .tab.is-active");
+    t("tab 📖 hiện tiến độ 7/7", tabF && /7\/7/.test(tabF.textContent), tabF && tabF.textContent);
+    const item = d.querySelector("#quizArea .course-item");
+    if (item) { item.click(); await wait(260); }
+    t("bấm 1 bài trong danh sách → vào bài giảng", !!d.querySelector("#quizArea .sl-goal"));
+
+    /* ---- 9. tiếng Việt toàn bộ ---- */
+    t("hero ghi rõ Lớp mất gốc", (d.getElementById("heroSub").textContent || "").indexOf("Lớp mất gốc") >= 0,
+      d.getElementById("heroSub").textContent);
+  } catch (e) {
+    logs.push("EXCEPTION: " + (e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : e));
+    fails++;
+  }
+  document.title = fails ? "FAIL " + fails : "ALL PASS";
+  document.getElementById("status").textContent = fails
+    ? "❌ " + fails + " lỗi / " + logs.length + " kiểm tra"
+    : "✅ ALL PASS — " + logs.length + " kiểm tra";
+  render();
+}
+if (/[?&]auto=1/.test(location.search)) {
+  run();
+} else {
+  document.getElementById("status").textContent = "SELFTEST — mở lại với ?auto=1 để chạy";
+  document.getElementById("log").textContent =
+    "Trang tự kiểm tra 51 assertions của game.\n" +
+    "⚠️ Chế độ tự động sẽ XÓA tiến độ demo trên máy (chỉ dùng khi phát triển).";
+  document.title = "SELFTEST";
+}
+</script>
+</body>
+</html>
