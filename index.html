@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>English Quest 7 — Phiêu lưu Tiếng Anh 7 Kết nối tri thức</title>
+<meta name="description" content="Game bản đồ phiêu lưu giúp học sinh lớp 7 ôn luyện từ vựng, nghe, ngữ pháp theo SGK Tiếng Anh 7 Kết nối tri thức với cuộc sống." />
+<meta name="theme-color" content="#6C4CF1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body data-screen="home">
+
+<!-- ===== Nền hoạt hình ===== -->
+<div class="scene" aria-hidden="true">
+  <div class="sun"></div>
+  <div class="cloud cloud--1"></div>
+  <div class="cloud cloud--2"></div>
+  <div class="cloud cloud--3"></div>
+  <div class="scene__hills"></div>
+  <div class="scene__ground"></div>
+</div>
+
+<!-- ===== HUD ===== -->
+<header class="hud" id="hud">
+  <div class="hud__group">
+    <button class="icon-btn" id="btnHome" title="Về trang chủ" aria-label="Về trang chủ">🏠</button>
+    <div class="hud__level">
+      <div class="level-badge" id="levelBadge">Lv 1</div>
+      <div class="xpbar"><div class="xpbar__fill" id="xpFill"></div></div>
+      <div class="xpbar__label" id="xpLabel">0/300 XP</div>
+    </div>
+  </div>
+  <div class="hud__group hud__group--right">
+    <div class="hud__pill" title="Tổng số sao">⭐ <span id="hudStars">0</span></div>
+    <div class="hud__pill" title="Chuỗi ngày học">🔥 <span id="hudStreak">0</span></div>
+    <button class="icon-btn" id="btnSound" title="Bật/tắt âm thanh" aria-label="Bật tắt âm thanh">🔊</button>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ===== TRANG CHỦ ===== -->
+  <section class="screen is-active" id="screen-home" aria-labelledby="homeTitle">
+    <div class="hero">
+      <div class="mascot" aria-hidden="true"><span class="mascot__body">🦜</span></div>
+      <p class="hero__kicker">SGK Tiếng Anh 7 · Kết nối tri thức với cuộc sống</p>
+      <h1 class="hero__title" id="homeTitle">ENGLISH<br /><span>QUEST 7</span></h1>
+      <p class="hero__sub" id="heroSub">Hành trình phiêu lưu: từ vựng · nghe · ngữ pháp · thử thách Boss</p>
+
+      <div class="hero__stats" id="heroStats">
+        <div class="stat"><b id="statXp">0</b><span>XP</span></div>
+        <div class="stat"><b id="statStars">0</b><span>⭐ sao</span></div>
+        <div class="stat"><b id="statUnits">0</b><span>chặng xong</span></div>
+        <div class="stat"><b id="statWords">0</b><span>từ đã học</span></div>
+      </div>
+
+      <div class="hero__actions">
+        <button class="btn btn--primary btn--big" id="btnPlay">🚀 Bắt đầu</button>
+        <div class="hero__row">
+          <button class="btn btn--ghost" id="btnWordbook">📖 Sổ từ</button>
+          <button class="btn btn--ghost" id="btnAch">🏅 Thành tích</button>
+          <button class="btn btn--ghost" id="btnHelp">❓ Cách chơi</button>
+        </div>
+      </div>
+      <p class="hero__note">Tiến độ được lưu tự động trên máy bạn</p>
+    </div>
+  </section>
+
+  <!-- ===== BẢN ĐỒ ===== -->
+  <section class="screen" id="screen-map" aria-labelledby="mapHeading">
+    <div class="map-head">
+      <h2 id="mapHeading">Bản đồ hành trình</h2>
+      <p id="mapChapter">Chọn chặng tiếp theo để bắt đầu</p>
+    </div>
+    <div class="map-track" id="mapTrack">
+      <svg class="map-svg" id="mapSvg" aria-hidden="true"><path id="mapPath" fill="none"></path></svg>
+      <div class="map-nodes" id="mapNodes"></div>
+    </div>
+  </section>
+
+  <!-- ===== MÀN CHƠI ===== -->
+  <section class="screen" id="screen-stage" aria-labelledby="stageTitle">
+    <div class="stage-top">
+      <button class="icon-btn" id="btnBack" aria-label="Quay lại bản đồ">←</button>
+      <div class="stage-title" id="stageTitle">Unit 1</div>
+      <div class="hearts" id="hearts" aria-label="Số tim còn lại"></div>
+    </div>
+    <div class="stage-tabs" id="stageTabs" role="tablist" aria-label="Các màn trong unit"></div>
+    <div class="qbar"><div class="qbar__fill" id="qProgress"></div></div>
+    <div class="quiz-area" id="quizArea"></div>
+    <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+  </section>
+
+  <!-- ===== KẾT QUẢ ===== -->
+  <section class="screen" id="screen-result" aria-labelledby="resultTitle">
+    <div class="result-card">
+      <div class="result-stars" id="resultStars" aria-label="Số sao đạt được"></div>
+      <h2 id="resultTitle">Hoàn thành!</h2>
+      <p class="result-msg" id="resultMsg"></p>
+      <div class="result-grid">
+        <div class="stat"><b id="resXp">+0</b><span>XP</span></div>
+        <div class="stat"><b id="resAcc">0%</b><span>đúng</span></div>
+        <div class="stat"><b id="resCombo">0</b><span>combo dài nhất</span></div>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn--ghost" id="btnRetry">🔁 Chơi lại</button>
+        <button class="btn btn--primary" id="btnToMap">🗺️ Về bản đồ</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== MODALS ===== -->
+<div class="modal" id="modal-help" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+  <div class="modal__box">
+    <button class="modal__close" data-close aria-label="Đóng">✕</button>
+    <h3 id="helpTitle">❓ Cách chơi</h3>
+    <ul class="help-list">
+      <li>🗺️ <b>Bản đồ:</b> mỗi Unit và mỗi lần Ôn tập (Review) là một chặng. Chặng kế tiếp chỉ mở khi bạn hoàn thành chặng trước — đi đúng lộ trình của SGK.</li>
+      <li>📚 <b>Màn 1 – Từ vựng:</b> lật thẻ học từ, nghe phát âm, rồi làm bài kiểm tra nhanh.</li>
+      <li>🎧 <b>Màn 2 – Nghe:</b> bấm 🔊 nghe câu/từ, chọn nghĩa đúng.</li>
+      <li>📝 <b>Màn 3 – Ngữ pháp:</b> điền chỗ trống, chọn đáp án, sắp xếp câu.</li>
+      <li>👑 <b>Màn 4 – Boss:</b> thử thách tổng hợp cả chặng. Có 3–5 <b>tim</b>: trả lời sai sẽ mất 1 tim.</li>
+      <li>⭐ <b>Sao:</b> ≥90% đúng = 3 sao, ≥75% = 2 sao, ≥60% = 1 sao.</li>
+      <li>⚡ <b>XP</b> giúp bạn lên cấp; 🔥 streak tăng khi học mỗi ngày.</li>
+    </ul>
+    <button class="btn btn--primary btn--block" data-close>Đã hiểu!</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-wordbook" role="dialog" aria-modal="true" aria-labelledby="wbTitle" hidden>
+  <div class="modal__box modal__box--wide">
+    <button class="modal__close" data-close aria-label="Đóng">✕</button>
+    <h3 id="wbTitle">📖 Sổ từ của tôi</h3>
+    <div class="wb-tools">
+      <input type="search" id="wbSearch" placeholder="Tìm từ / nghĩa..." aria-label="Tìm từ trong sổ từ" />
+      <button class="btn btn--mini" id="wbSpeakAll">🔊</button>
+    </div>
+    <div class="wb-list" id="wbList"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-ach" role="dialog" aria-modal="true" aria-labelledby="achTitle" hidden>
+  <div class="modal__box modal__box--wide">
+    <button class="modal__close" data-close aria-label="Đóng">✕</button>
+    <h3 id="achTitle">🏅 Thành tích</h3>
+    <div class="ach-grid" id="achGrid"></div>
+  </div>
+</div>
+
+<div id="confetti" aria-hidden="true"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="fatal" id="fatal" hidden>
+  <p>😢 Không tìm thấy file <b>data.js</b> (học liệu SGK).</p>
+  <p>Hãy đảm bảo file <b>data.js</b> nằm cùng thư mục với <b>index.html</b>.</p>
+</div>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
