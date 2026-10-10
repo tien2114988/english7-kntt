@@ -144,10 +144,33 @@
   /* ---------- âm thanh ---------- */
   let AC = null;
   const ac = () => (AC = AC || new (window.AudioContext || window.webkitAudioContext)());
+  /* iOS: WebAudio mặc định là "ambient" → bị TẮT khi công tắc im lặng bật.
+     Đổi sang "playback" để tiếng luôn phát được (Safari 16.4+). */
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
+  } catch (e) { /* bỏ qua */ }
+  /* Điện thoại: AudioContext tạo ra ở trạng thái "suspended" nếu chưa có
+     tương tác người dùng → phát không ra tiếng. Mở khoá ngay lúc bấm/chạm. */
+  function unlockAudio() {
+    try {
+      if (S.sound) {
+        const c = ac();
+        if (c.state !== "running") c.resume().catch(() => {});
+      }
+      if ("speechSynthesis" in window && !speechSynthesis.speaking)
+        speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    } catch (e) { /* bỏ qua */ }
+  }
+  ["pointerdown", "touchend", "keydown"].forEach((ev) =>
+    document.addEventListener(ev, unlockAudio, { once: true, passive: true }));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && AC && AC.state !== "running") AC.resume().catch(() => {});
+  });
   function tone(freq, dur, type, delay, vol) {
     if (!S.sound) return;
     try {
       const c = ac();
+      if (c.state !== "running") c.resume().catch(() => {});
       const o = c.createOscillator(), g = c.createGain();
       const t = c.currentTime + (delay || 0);
       o.type = type || "sine";
@@ -189,11 +212,23 @@
       u.lang = "en-US";
       u.rate = 0.9;
       if (EN_VOICE) u.voice = EN_VOICE;
+      if (!EN_VOICE) { pickVoice(); if (EN_VOICE) u.voice = EN_VOICE; }
       if (btn) {
         btn.classList.add("is-playing");
         u.onend = u.onerror = () => btn.classList.remove("is-playing");
+        setTimeout(() => btn.classList.remove("is-playing"), 12000);
       }
+      /* iOS/Android: speak() ngay sau cancel() đôi khi bị nuốt → nói đồng bộ
+         trước (đúng ngữ cảnh chạm tay), nếu vẫn chưa chạy thì thử lại sau 120ms */
       speechSynthesis.speak(u);
+      setTimeout(() => {
+        try {
+          if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+            speechSynthesis.resume();
+            speechSynthesis.speak(u);
+          }
+        } catch (e) { /* bỏ qua */ }
+      }, 120);
     } catch (e) { /* bỏ qua */ }
   }
 
@@ -1639,9 +1674,11 @@
       /* đi hết một màn tự động (kể cả phần bài giảng) */
       runStage(unitIdx, key) {
         startStage(unitIdx, key == null ? "learn" : key);
+        const myRun = run;
         let guard = 0;
         const step = () => {
-          if (!run || run.finished || guard++ > 200) return;
+          /* dừng ngay nếu đã đổi sang run khác (tránh bấm nhầm phím của màn sau) */
+          if (run !== myRun || run.finished || guard++ > 200) return;
           if (run.phase === "learn") {
             const b = $("#slNext");
             if (b) b.click();
