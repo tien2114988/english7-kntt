@@ -157,8 +157,14 @@
         const c = ac();
         if (c.state !== "running") c.resume().catch(() => {});
       }
-      if ("speechSynthesis" in window && !speechSynthesis.speaking)
-        speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+      /* iOS chặn speechSynthesis.speak() cho tới khi có gesture người dùng.
+         Gesture đầu tiên → nói 1 câu im (volume 0) để mở khoá TTS vĩnh viễn. */
+      if ("speechSynthesis" in window && !TTS_UNLOCKED) {
+        TTS_UNLOCKED = true;
+        const u0 = new SpeechSynthesisUtterance(" ");
+        u0.volume = 0; u0.rate = 10;
+        speechSynthesis.speak(u0);
+      }
     } catch (e) { /* bỏ qua */ }
   }
   ["pointerdown", "touchend", "keydown"].forEach((ev) =>
@@ -192,6 +198,7 @@
 
   /* ---------- phát âm (TTS) ---------- */
   let EN_VOICE = null;
+  let TTS_UNLOCKED = false;
   function pickVoice() {
     if (!("speechSynthesis" in window)) return;
     const vs = speechSynthesis.getVoices() || [];
@@ -207,28 +214,68 @@
   function speak(text, btn) {
     if (!text || !("speechSynthesis" in window)) return;
     try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(String(text));
-      u.lang = "en-US";
-      u.rate = 0.9;
-      if (EN_VOICE) u.voice = EN_VOICE;
-      if (!EN_VOICE) { pickVoice(); if (EN_VOICE) u.voice = EN_VOICE; }
-      if (btn) {
-        btn.classList.add("is-playing");
-        u.onend = u.onerror = () => btn.classList.remove("is-playing");
-        setTimeout(() => btn.classList.remove("is-playing"), 12000);
+      const ss = speechSynthesis;
+      TTS_UNLOCKED = true;
+      const mk = () => {
+        if (!EN_VOICE) pickVoice();
+        const u = new SpeechSynthesisUtterance(String(text));
+        u.lang = "en-US";
+        u.rate = 0.9;
+        if (EN_VOICE) u.voice = EN_VOICE;
+        if (btn) {
+          btn.classList.add("is-playing");
+          u.onend = () => btn.classList.remove("is-playing");
+          u.onerror = (e) => {
+            btn.classList.remove("is-playing");
+            /* iOS/Chrome: cancel() đang chạy → 'interrupted' là vô hại. */
+            const err = e && e.error;
+            if (err === "interrupted" || err === "canceled") return;
+            /* Giọng không tải về / không hỗ trợ → bỏ voice, nói bằng lang mặc định */
+            if ((err === "language-not-supported" || err === "synthesis-failed" ||
+                 err === "network" || err === "not-allowed") && !noVoiceFallback && EN_VOICE) {
+              noVoiceFallback = true;
+              EN_VOICE = null;
+              setTimeout(fire, 150);
+              return;
+            }
+            if (tries < 2) { tries++; setTimeout(fire, 150); }
+          };
+          setTimeout(() => btn.classList.remove("is-playing"), 15000);
+        }
+        return u;
+      };
+      let tries = 0, started = false, noVoiceFallback = false;
+      const fire = () => {
+        const u = mk();
+        const prevEnd = u.onend;
+        u.onstart = () => { started = true; };
+        /* câu đã phát xong cũng coi là "đã nói" để retry không lặp lại */
+        u.onend = (e) => { started = true; if (prevEnd) prevEnd(e); };
+        try { ss.speak(u); } catch (e) { /* bỏ qua */ }
+      };
+
+      /* QUAN TRỌNG (iOS/Chrome Android): cancel() ngay trước speak() trong cùng
+         1 lượt → utterance bị NUỐT im lặng. Chỉ cancel khi thật sự đang nói,
+         và chờ 50ms rồi mới speak. Còn không → speak ngay trong gesture. */
+      let busy = false;
+      try { busy = ss.speaking || ss.pending; } catch (e) { /* bỏ qua */ }
+      if (busy) {
+        try { ss.cancel(); } catch (e) { /* bỏ qua */ }
+        setTimeout(fire, 50);
+      } else {
+        try { if (ss.paused) ss.resume(); } catch (e) { /* bỏ qua */ }
+        fire();
       }
-      /* iOS/Android: speak() ngay sau cancel() đôi khi bị nuốt → nói đồng bộ
-         trước (đúng ngữ cảnh chạm tay), nếu vẫn chưa chạy thì thử lại sau 120ms */
-      speechSynthesis.speak(u);
-      setTimeout(() => {
-        try {
-          if (!speechSynthesis.speaking && !speechSynthesis.pending) {
-            speechSynthesis.resume();
-            speechSynthesis.speak(u);
-          }
-        } catch (e) { /* bỏ qua */ }
-      }, 120);
+      /* Chưa nghe thấy gì sau 700ms (utterance bị nuốt) → thử lại tối đa 2 lần */
+      const retry = () => {
+        setTimeout(() => {
+          if (started || tries >= 2) return;
+          tries++;
+          try { if (!ss.speaking && !ss.pending) { ss.resume(); fire(); } } catch (e) { /* bỏ qua */ }
+          retry();
+        }, 700);
+      };
+      retry();
     } catch (e) { /* bỏ qua */ }
   }
 
